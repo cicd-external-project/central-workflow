@@ -82,7 +82,7 @@ permissions:
 jobs:
   call-orchestrator:
     # Track main so caller repos receive central workflow fixes immediately.
-    uses: ImplementSprint/central-workflow/.github/workflows/master-pipeline-fe.yml@main
+    uses: cicd-external-project/central-workflow/.github/workflows/master-pipeline-fe.yml@main
     with:
       pipeline_mode: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.pipeline_mode || 'auto' }}
       enable_playwright: ${{ github.event_name == 'workflow_dispatch' && fromJSON(github.event.inputs.enable_playwright || 'false') || false }}

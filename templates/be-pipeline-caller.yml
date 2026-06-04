@@ -77,7 +77,7 @@ permissions:
 jobs:
   call-backend-orchestrator:
     # Track main so caller repos receive central workflow fixes immediately.
-    uses: ImplementSprint/central-workflow/.github/workflows/master-pipeline-be.yml@main
+    uses: cicd-external-project/central-workflow/.github/workflows/master-pipeline-be.yml@main
     with:
       pipeline_mode: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.pipeline_mode || 'auto' }}
       enable_security_scan: ${{ github.event_name == 'workflow_dispatch' && fromJSON(github.event.inputs.enable_security_scan || 'true') || github.event_name != 'workflow_dispatch' }}
