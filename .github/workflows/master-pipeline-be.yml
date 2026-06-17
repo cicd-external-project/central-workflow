@@ -356,15 +356,58 @@ jobs:
         continue-on-error: true
         run: |
           SYSTEMS='${{ needs.active-systems.outputs.active_systems_json }}'
+          if [ ! -d ".coverage-artifacts" ]; then
+            echo "No coverage artifacts were downloaded."
+            exit 0
+          fi
+
+          SYSTEM_COUNT=$(echo "${SYSTEMS}" | jq 'length')
+
+          stage_coverage() {
+            local service_name="$1"
+            local artifact_dir="$2"
+            local dir
+            local dest
+
+            [ -d "${artifact_dir}" ] || return 0
+
+            dir=$(echo "${SYSTEMS}" | jq -r --arg n "${service_name}" 'map(select(.name == $n)) | .[0].dir // empty')
+            if [ -z "${dir}" ] && [ "${SYSTEM_COUNT}" -eq 1 ]; then
+              dir=$(echo "${SYSTEMS}" | jq -r '.[0].dir // "."')
+              service_name=$(echo "${SYSTEMS}" | jq -r '.[0].name // "backend"')
+            fi
+
+            if [ -z "${dir}" ]; then
+              echo "Could not resolve coverage target for artifact '${service_name}', skipping."
+              return 0
+            fi
+
+            dir=$(echo "${dir}" | sed 's|^\./||; s|^\.$||')
+            dest="${dir:+${dir}/}coverage"
+            mkdir -p "${dest}"
+            cp -r "${artifact_dir}/." "${dest}/"
+
+            if [ -f "${dest}/coverage/lcov.info" ] && [ ! -f "${dest}/lcov.info" ]; then
+              cp "${dest}/coverage/lcov.info" "${dest}/lcov.info"
+            fi
+
+            if [ -f "${dest}/lcov.info" ]; then
+              echo "Staged ${service_name} coverage -> ${dest}/lcov.info"
+            else
+              echo "Staged ${service_name} coverage -> ${dest}/, but no lcov.info was found there."
+            fi
+          }
+
+          if [ -f ".coverage-artifacts/lcov.info" ] || [ -f ".coverage-artifacts/coverage-summary.json" ]; then
+            SERVICE_NAME=$(echo "${SYSTEMS}" | jq -r 'if length == 1 then .[0].name else "backend" end')
+            stage_coverage "${SERVICE_NAME}" ".coverage-artifacts"
+          fi
+
           for artifact_dir in .coverage-artifacts/*-coverage; do
             [ -d "${artifact_dir}" ] || continue
             ARTIFACT_NAME=$(basename "${artifact_dir}")
             SERVICE_NAME="${ARTIFACT_NAME%-coverage}"
-            DIR=$(echo "${SYSTEMS}" | jq -r --arg n "${SERVICE_NAME}"               '.[] | select(.name == $n) | .dir' | sed 's|^\./||; s|^\.$||')
-            DEST="${DIR:+${DIR}/}coverage"
-            mkdir -p "${DEST}"
-            cp -r "${artifact_dir}/." "${DEST}/"
-            echo "Staged ${SERVICE_NAME} coverage → ${DEST}/"
+            stage_coverage "${SERVICE_NAME}" "${artifact_dir}"
           done
 
       - name: Run SonarCloud Scan
